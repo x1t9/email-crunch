@@ -86,3 +86,4 @@ class PDFParser(BaseParser):
             doc.close()
 
         return list(emails)
+

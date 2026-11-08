@@ -220,3 +220,4 @@ def run_ocr_on_image(file_path: str) -> List[str]:
     with open(file_path, 'rb') as f:
         data = f.read()
     return run_ocr_on_bytes(data)
+

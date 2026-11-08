@@ -52,3 +52,4 @@ class EBookParser(BaseParser):
             pass
 
         return list(emails)
+

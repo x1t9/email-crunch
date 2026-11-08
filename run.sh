@@ -20,3 +20,4 @@ fi
 
 echo "Launching Email Crunch using $PYTHON_CMD..."
 exec "$PYTHON_CMD" "$DIR/main.py" "$@"
+

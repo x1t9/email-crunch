@@ -95,3 +95,4 @@ jobs:
           draft: false
           prerelease: true
           generate_release_notes: true
+

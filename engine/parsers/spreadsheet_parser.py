@@ -137,3 +137,4 @@ class SpreadsheetParser(BaseParser):
         except Exception:
             pass
         return emails
+

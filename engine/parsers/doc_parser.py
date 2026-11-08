@@ -140,3 +140,4 @@ class DocumentParser(BaseParser):
         except Exception:
             pass
         return emails
+

@@ -44,3 +44,4 @@ class ImageOCRParser(BaseParser):
             progress_callback(100)
 
         return emails
+

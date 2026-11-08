@@ -43,3 +43,4 @@ class BaseParser(ABC):
             List of unique extracted email addresses.
         """
         raise NotImplementedError
+

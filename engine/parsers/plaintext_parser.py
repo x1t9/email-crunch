@@ -70,3 +70,4 @@ class PlainTextParser(BaseParser):
         # 3. Latin-1 / ASCII safe fallback
         text = raw.decode('latin-1', errors='ignore')
         return extract_emails_from_text(text)
+
