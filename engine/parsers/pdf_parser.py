@@ -20,14 +20,14 @@ from engine.email_utils import (
 )
 from engine.ocr_manager import run_ocr_on_bytes
 
-# PyMuPDF (fitz)
+# PyMuPDF
 try:
-    import pymupdf as fitz
+    import pymupdf
 except ImportError:
     try:
-        import fitz
+        import fitz as pymupdf
     except ImportError:
-        fitz = None
+        pymupdf = None
 
 
 class PDFParser(BaseParser):
@@ -44,11 +44,11 @@ class PDFParser(BaseParser):
         enable_ocr: bool = False,
         progress_callback: Optional[Callable[[int], None]] = None
     ) -> List[str]:
-        if fitz is None:
-            raise RuntimeError("PyMuPDF (fitz) is not installed. Run: pip install pymupdf")
+        if pymupdf is None:
+            raise RuntimeError("PyMuPDF is not installed. Run: pip install pymupdf")
 
         emails: Set[str] = set()
-        doc = fitz.open(file_path)
+        doc = pymupdf.open(file_path)
         total_pages = len(doc)
 
         try:

@@ -450,11 +450,18 @@ class MainWindow(QMainWindow):
     # ── File management ────────────────────────────────────────────────────
 
     def _action_add_files(self):
+        all_exts = " ".join(f"*{ext}" for ext in sorted(get_supported_extensions()))
         filters = (
-            "All Supported (*.pdf *.docx *.xlsx *.pptx *.txt *.html *.mht *.rtf *.eml *.png *.jpg *.tiff);;"
-            "PDF (*.pdf);;Word (*.docx *.doc);;Excel (*.xlsx *.xls);;"
-            "PowerPoint (*.pptx *.ppt);;Text & Web (*.txt *.md *.html *.mhtml *.mht *.rtf *.eml);;"
-            "Images (*.png *.jpg *.jpeg *.tiff *.tif *.bmp);;All Files (*.*)"
+            f"All Supported Files ({all_exts});;"
+            "PDF Documents (*.pdf);;"
+            "Word Documents (*.docx *.doc *.odt *.rtf);;"
+            "Excel Spreadsheets (*.xlsx *.xls *.ods *.csv *.tsv);;"
+            "PowerPoint (*.pptx *.ppt *.odp);;"
+            "Text & Web (*.txt *.md *.tex *.html *.mhtml *.mht *.xml *.json *.log *.eml);;"
+            "Apple iWork (*.pages *.numbers *.key);;"
+            "E-Books (*.epub);;"
+            "Images (*.png *.jpg *.jpeg *.tiff *.tif *.bmp *.webp);;"
+            "All Files (*.*)"
         )
         files, _ = QFileDialog.getOpenFileNames(self, "Add Files", "", filters)
         if files:

@@ -190,7 +190,11 @@ class OutputManager:
                 stem, ext = os.path.splitext(orig_name)
                 new_name = f"{self.rename_prefix}{stem}{self.rename_suffix}{ext}"
                 new_path = os.path.join(parent, new_name)
-                os.rename(file_path, new_path)
+                if os.path.exists(new_path):
+                    ts = datetime.now().strftime("%Y%m%d%H%M%S")
+                    new_name = f"{self.rename_prefix}{stem}_{ts}{self.rename_suffix}{ext}"
+                    new_path = os.path.join(parent, new_name)
+                os.replace(file_path, new_path)
                 return True, f"Renamed to {new_name}"
             except Exception as e:
                 return False, f"Failed to rename: {e}"
