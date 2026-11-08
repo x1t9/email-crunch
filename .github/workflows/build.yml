@@ -1,0 +1,97 @@
+name: Build & Release Email Crunch
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: EmailCrunch-windows-x64.zip
+            asset_path: dist/EmailCrunch.exe
+          - os: macos-latest
+            artifact_name: EmailCrunch-macos-arm64.zip
+            asset_path: dist/EmailCrunch.app
+          - os: ubuntu-latest
+            artifact_name: EmailCrunch-linux-x64.zip
+            asset_path: dist/EmailCrunch
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb-cursor0 libxkbcommon-x11-0 libegl1 libgl1
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run Test Suite
+        run: |
+          python test_app.py
+
+      - name: Build Standalone Binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python -m PyInstaller --noconsole --name EmailCrunch --onefile --clean --add-data "engine/parsers;engine/parsers" --hidden-import engine.parsers.doc_parser --hidden-import engine.parsers.spreadsheet_parser --hidden-import engine.parsers.presentation_parser --hidden-import engine.parsers.pdf_parser --hidden-import engine.parsers.plaintext_parser --hidden-import engine.parsers.ebook_parser --hidden-import engine.parsers.iwork_parser --hidden-import engine.parsers.image_parser --hidden-import engine.ocr_manager --hidden-import rapidocr_onnxruntime --hidden-import winocr --hidden-import pymupdf --hidden-import olefile --hidden-import chardet --hidden-import psutil main.py
+          Compress-Archive -Path dist/EmailCrunch.exe -DestinationPath EmailCrunch-windows-x64.zip
+
+      - name: Build Standalone Binary (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          python -m PyInstaller --noconsole --name EmailCrunch --windowed --clean --add-data "engine/parsers:engine/parsers" --hidden-import engine.parsers.doc_parser --hidden-import engine.parsers.spreadsheet_parser --hidden-import engine.parsers.presentation_parser --hidden-import engine.parsers.pdf_parser --hidden-import engine.parsers.plaintext_parser --hidden-import engine.parsers.ebook_parser --hidden-import engine.parsers.iwork_parser --hidden-import engine.parsers.image_parser --hidden-import engine.ocr_manager --hidden-import rapidocr_onnxruntime --hidden-import pymupdf --hidden-import olefile --hidden-import chardet --hidden-import psutil main.py
+          cd dist && zip -r ../EmailCrunch-macos-arm64.zip EmailCrunch.app
+
+      - name: Build Standalone Binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          python -m PyInstaller --name EmailCrunch --onefile --clean --add-data "engine/parsers:engine/parsers" --hidden-import engine.parsers.doc_parser --hidden-import engine.parsers.spreadsheet_parser --hidden-import engine.parsers.presentation_parser --hidden-import engine.parsers.pdf_parser --hidden-import engine.parsers.plaintext_parser --hidden-import engine.parsers.ebook_parser --hidden-import engine.parsers.iwork_parser --hidden-import engine.parsers.image_parser --hidden-import engine.ocr_manager --hidden-import rapidocr_onnxruntime --hidden-import pymupdf --hidden-import olefile --hidden-import chardet --hidden-import psutil main.py
+          cd dist && zip -r ../EmailCrunch-linux-x64.zip EmailCrunch
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            EmailCrunch-windows-x64.zip/EmailCrunch-windows-x64.zip
+            EmailCrunch-macos-arm64.zip/EmailCrunch-macos-arm64.zip
+            EmailCrunch-linux-x64.zip/EmailCrunch-linux-x64.zip
+          draft: false
+          prerelease: true
+          generate_release_notes: true

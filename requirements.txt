@@ -1,0 +1,24 @@
+# Email Crunch v0.1-alpha — Dependencies
+# Install: pip install -r requirements.txt
+
+PySide6>=6.6.0
+pymupdf>=1.23.0
+olefile>=0.46
+chardet>=5.2.0
+psutil>=5.9.0
+pillow>=10.0.0
+
+# OCR — cross-platform (recommended, works on Windows/macOS/Linux)
+rapidocr-onnxruntime>=1.3.0
+
+# OCR — Windows only (built-in, zero download)
+winocr>=0.0.15; sys_platform == "win32"
+
+# OCR — optional traditional engine (requires Tesseract binary installed separately)
+# pytesseract>=0.3.10
+
+# OCR — optional deep learning engine (large download ~1GB)
+# easyocr>=1.7.0
+
+# Build / packaging (optional, for creating binaries)
+# pyinstaller>=6.0.0
