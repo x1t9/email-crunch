@@ -6,9 +6,11 @@ pymupdf>=1.23.0
 olefile>=0.46
 chardet>=5.2.0
 psutil>=5.9.0
-pillow>=10.0.0
 
-# OCR — cross-platform (recommended, works on Windows/macOS/Linux)
+# Pillow with full image format support (webp, tiff, jpeg, bmp, png)
+pillow>=10.3.0
+
+# RapidOCR — bundled default OCR engine, works on all platforms, no binary needed
 rapidocr-onnxruntime>=1.3.0
 
 # OCR — Windows only (built-in, zero download)
@@ -20,5 +22,5 @@ winocr>=0.0.15; sys_platform == "win32"
 # OCR — optional deep learning engine (large download ~1GB)
 # easyocr>=1.7.0
 
-# Build / packaging (optional, for creating binaries)
+# Build / packaging (optional)
 # pyinstaller>=6.0.0

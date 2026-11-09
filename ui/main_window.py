@@ -283,22 +283,27 @@ class MainWindow(QMainWindow):
         self.radio_group.addButton(self.radio_custom, 2)
         self.radio_group.addButton(self.radio_merge, 3)
         self.radio_custom.setChecked(True)
+        self.radio_same.toggled.connect(self._on_dest_mode_changed)
+        self.radio_custom.toggled.connect(self._on_dest_mode_changed)
+        self.radio_merge.toggled.connect(self._on_dest_mode_changed)
         lay.addWidget(self.radio_same)
         lay.addWidget(self.radio_custom)
 
+        # Destination folder row (shown for custom + merge)
         dest_row = QHBoxLayout()
         dest_row.setContentsMargins(14, 0, 0, 0)
         default_dir = os.path.join(os.path.expanduser("~"), "Documents", "EmailCrunch")
         self.dest_input = QLineEdit(default_dir)
         dest_row.addWidget(self.dest_input)
-        btn_browse = QPushButton("Browse")
-        btn_browse.setFixedWidth(58)
-        btn_browse.clicked.connect(self._browse_dest)
-        dest_row.addWidget(btn_browse)
+        self.btn_browse_dest = QPushButton("Browse")
+        self.btn_browse_dest.setFixedWidth(58)
+        self.btn_browse_dest.clicked.connect(self._browse_dest)
+        dest_row.addWidget(self.btn_browse_dest)
         lay.addLayout(dest_row)
 
         lay.addWidget(self.radio_merge)
 
+        # Prefix + split rows (always visible)
         row2 = QHBoxLayout()
         row2.setSpacing(8)
         prefix_col = QVBoxLayout()
@@ -430,8 +435,20 @@ class MainWindow(QMainWindow):
         self.rename_frame.setVisible(action == "rename")
         self.archive_frame.setVisible(action == "move")
 
+    def _on_dest_mode_changed(self):
+        """Show/hide destination folder row based on selected output mode."""
+        show = self.radio_custom.isChecked() or self.radio_merge.isChecked()
+        self.dest_input.setVisible(show)
+        self.btn_browse_dest.setVisible(show)
+
     def _browse_dest(self):
-        d = QFileDialog.getExistingDirectory(self, "Select Export Folder", self.dest_input.text())
+        # Start from current input value, or last added file's folder, or home
+        start = self.dest_input.text().strip()
+        if not os.path.isdir(start) and self.file_items:
+            start = os.path.dirname(self.file_items[-1]['path'])
+        if not os.path.isdir(start):
+            start = os.path.expanduser("~")
+        d = QFileDialog.getExistingDirectory(self, "Select Export Folder", start)
         if d:
             self.dest_input.setText(d)
 
@@ -518,7 +535,7 @@ class MainWindow(QMainWindow):
         sz.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.table.setItem(row, 3, sz)
 
-        is_img = ext in {'.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.pdf'}
+        is_img = ext in {'.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp', '.pdf'}
         ocr_item = QTableWidgetItem("On" if (is_img and self.ocr_checkbox.isChecked()) else "—")
         ocr_item.setTextAlignment(Qt.AlignCenter)
         self.table.setItem(row, 4, ocr_item)
@@ -722,7 +739,15 @@ class MainWindow(QMainWindow):
             return
 
         if self.output_manager and self.radio_merge.isChecked():
-            self.output_manager.finalize_merged_export()
+            saved = self.output_manager.finalize_merged_export()
+            if saved and self.notify_check.isChecked():
+                QMessageBox.information(
+                    self, "Batch Complete",
+                    f"Files processed: {len(self.file_items)}\n"
+                    f"Unique emails found: {self.total_unique_emails:,}\n\n"
+                    f"Merged CSV saved to:\n" + "\n".join(saved)
+                )
+                return
 
         if self.notify_check.isChecked():
             QMessageBox.information(

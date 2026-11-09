@@ -165,8 +165,8 @@ def get_ocr_engines_status() -> Dict[str, Dict]:
 
 def run_ocr_on_bytes(img_bytes: bytes) -> List[str]:
     """
-    Executes OCR on raw image bytes using the user's selected OCR engine
-    with fallback logic.
+    Executes OCR on raw image bytes using the user's selected OCR engine.
+    Normalizes all formats (including webp) to PNG via Pillow before OCR.
     """
     if not img_bytes:
         return []
@@ -174,10 +174,24 @@ def run_ocr_on_bytes(img_bytes: bytes) -> List[str]:
     engine = _active_ocr_engine_key
     emails: Set[str] = set()
 
+    # Normalize image to PNG bytes via Pillow (fixes webp, cmyk jpg, etc.)
+    normalized_bytes = img_bytes
+    if PILImage is not None:
+        try:
+            img = PILImage.open(io.BytesIO(img_bytes))
+            # Convert to RGB to ensure compatibility with all OCR engines
+            if img.mode not in ('RGB', 'L'):
+                img = img.convert('RGB')
+            buf = io.BytesIO()
+            img.save(buf, format='PNG')
+            normalized_bytes = buf.getvalue()
+        except Exception:
+            normalized_bytes = img_bytes
+
     # 1. Windows Native OCR (Windows only)
     if engine == "windows_native" and _HAS_WINOCR and sys.platform == 'win32' and PILImage is not None:
         try:
-            image = PILImage.open(io.BytesIO(img_bytes))
+            image = PILImage.open(io.BytesIO(normalized_bytes))
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             result = loop.run_until_complete(winocr.recognize_pil(image, lang='en'))
@@ -187,12 +201,12 @@ def run_ocr_on_bytes(img_bytes: bytes) -> List[str]:
             if emails:
                 return list(emails)
         except Exception:
-            pass  # Fall through to RapidOCR fallback
+            pass
 
-    # 2. RapidOCR (ONNX) - Cross-platform
+    # 2. RapidOCR (ONNX) - Cross-platform, primary bundled engine
     if (engine == "rapidocr" or not emails) and _HAS_RAPIDOCR and _rapidocr_engine is not None:
         try:
-            ocr_result, _ = _rapidocr_engine(img_bytes)
+            ocr_result, _ = _rapidocr_engine(normalized_bytes)
             if ocr_result:
                 all_text = " ".join([line[1] for line in ocr_result if len(line) > 1])
                 emails.update(extract_emails_from_text(all_text))
@@ -204,7 +218,7 @@ def run_ocr_on_bytes(img_bytes: bytes) -> List[str]:
     # 3. Tesseract OCR - Cross-platform
     if (engine == "tesseract" or not emails) and _HAS_TESSERACT and pytesseract is not None and PILImage is not None:
         try:
-            image = PILImage.open(io.BytesIO(img_bytes))
+            image = PILImage.open(io.BytesIO(normalized_bytes))
             text = pytesseract.image_to_string(image)
             emails.update(extract_emails_from_text(text))
             if emails:

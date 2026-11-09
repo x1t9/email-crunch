@@ -136,7 +136,9 @@ QHeaderView::section {{
     font-weight: 600;
     font-size: 11px;
 }}
-QTableWidget::item {{ padding: 3px 6px; }}
+QTableWidget::item {{ padding: 3px 6px; color: #c9cdd4; }}
+QTableWidget::item:selected {{ color: #e5e7eb; background-color: #2d3139; }}
+QLabel {{ color: #d1d5db; }}
 QFrame#tableHintBar {{
     background-color: #13151a;
     border: 1px solid #2d3139;
@@ -353,7 +355,9 @@ QHeaderView::section {{
     font-weight: 600;
     font-size: 11px;
 }}
-QTableWidget::item {{ padding: 3px 6px; }}
+QTableWidget::item {{ padding: 3px 6px; color: #374151; }}
+QTableWidget::item:selected {{ color: #1d4ed8; background-color: #eff6ff; }}
+QLabel {{ color: #111827; }}
 QFrame#tableHintBar {{
     background-color: #ffffff;
     border: 1px solid #e5e7eb;
