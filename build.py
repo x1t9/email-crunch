@@ -1,9 +1,6 @@
 """
 Cross-Platform Build Script for Email Crunch v0.1-alpha.
-Generates standalone executables using PyInstaller:
-- Windows: dist/EmailCrunch.exe
-- macOS: dist/EmailCrunch.app
-- Linux: dist/EmailCrunch
+Generates standalone executables using PyInstaller.
 
 Run:
     python build.py
@@ -18,11 +15,10 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 MAIN_PY = os.path.join(APP_DIR, "main.py")
 DIST_DIR = os.path.join(APP_DIR, "dist")
 BUILD_DIR = os.path.join(APP_DIR, "build")
-
-# Path separator for PyInstaller --add-data
 SEP = ";" if sys.platform == "win32" else ":"
 
 HIDDEN_IMPORTS = [
+    "engine.parsers",
     "engine.parsers.base_parser",
     "engine.parsers.doc_parser",
     "engine.parsers.spreadsheet_parser",
@@ -46,10 +42,8 @@ if sys.platform == "win32":
 
 
 def clean():
-    """Removes previous build artifacts."""
     for d in [BUILD_DIR, DIST_DIR]:
         if os.path.exists(d):
-            print(f"Cleaning {d}...")
             shutil.rmtree(d, ignore_errors=True)
 
 
@@ -61,33 +55,25 @@ def build():
     data_arg = f"{parsers_dir}{SEP}engine/parsers"
 
     cmd = [
-        sys.executable,
-        "-m", "PyInstaller",
+        sys.executable, "-m", "PyInstaller",
         "--noconsole",
         "--name", "EmailCrunch",
         "--onedir",
         "--clean",
+        "--noconfirm",
         "--add-data", data_arg,
     ]
-
     for imp in HIDDEN_IMPORTS:
         cmd.extend(["--hidden-import", imp])
-
     cmd.append(MAIN_PY)
 
-    print("Executing command:", " ".join(cmd))
     result = subprocess.run(cmd, cwd=APP_DIR)
-
     if result.returncode != 0:
         print(f"Build failed with code {result.returncode}")
         sys.exit(result.returncode)
 
-    print("\n=======================================================")
-    print("Build successful!")
-    print(f"Output folder: {DIST_DIR}")
-    print("=======================================================")
+    print(f"\nBuild successful! Output: {DIST_DIR}")
 
 
 if __name__ == "__main__":
     build()
-

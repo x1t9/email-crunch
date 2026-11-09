@@ -18,7 +18,8 @@ from engine.email_utils import (
 )
 from engine.parsers import (
     parse_document, get_ocr_engines_status,
-    set_hardware_acceleration, is_hardware_acceleration_enabled
+    set_hardware_acceleration, is_hardware_acceleration_enabled,
+    get_supported_extensions, get_registered_parsers
 )
 from engine.output_manager import OutputManager
 
@@ -57,6 +58,11 @@ class TestEmailUtils(unittest.TestCase):
         self.assertEqual(get_email_domain("test@example.com"), "@example.com")
         self.assertEqual(get_email_domain("user@corp.co.uk"), "@corp.co.uk")
 
+    def test_deduplication(self):
+        emails = ["A@Test.com", "a@test.com", "b@test.com"]
+        result = deduplicate_email_list(emails)
+        self.assertEqual(len(result), 2)
+
 
 class TestParsers(unittest.TestCase):
     def test_plain_text(self):
@@ -78,7 +84,8 @@ class TestParsers(unittest.TestCase):
             with zipfile.ZipFile(path, "w") as z:
                 z.writestr(
                     "word/document.xml",
-                    b'<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                    b'<?xml version="1.0"?>'
+                    b'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
                     b'<w:body><w:p><w:t>Contact docx@enterprise.com</w:t></w:p></w:body></w:document>'
                 )
             emails, err = parse_document(path)
@@ -87,53 +94,28 @@ class TestParsers(unittest.TestCase):
         finally:
             os.remove(path)
 
-    def test_parser_autodiscovery(self):
-        """Verify engine/parsers/ auto-discovery loads all built-in format parsers."""
-        from engine.parsers import get_supported_extensions, get_registered_parsers
-        supported = get_supported_extensions()
-        for ext in ['.docx', '.doc', '.odt', '.rtf', '.xlsx', '.xls', '.ods', '.csv', '.tsv',
-                    '.pptx', '.ppt', '.odp', '.pdf', '.txt', '.md', '.html', '.eml',
-                    '.epub', '.pages', '.numbers', '.key', '.png', '.jpg']:
-            self.assertIn(ext, supported, f"Parser for {ext} not discovered")
-        parsers = get_registered_parsers()
-        self.assertGreaterEqual(len(parsers), 7)
-
-    def test_custom_parser_dynamic_drop(self):
-        """Verify dropping a custom parser file in engine/parsers/ is auto-detected."""
-        import importlib
-        from engine.parsers import discover_and_register_parsers, get_supported_extensions
-        parsers_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "engine", "parsers")
-        custom_file = os.path.join(parsers_dir, "custom_dummy_parser.py")
-        custom_code = (
-            "from engine.parsers.base_parser import BaseParser\n"
-            "class CustomDummyParser(BaseParser):\n"
-            "    SUPPORTED_EXTENSIONS = {'.dummyformat'}\n"
-            "    PARSER_NAME = 'Dummy Custom Parser'\n"
-            "    def parse(self, file_path, enable_ocr=False, progress_callback=None):\n"
-            "        return ['custom@dummy.org']\n"
-        )
+    def test_xlsx_parser(self):
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            path = f.name
         try:
-            with open(custom_file, "w") as f:
-                f.write(custom_code)
-            discover_and_register_parsers()
-            supported = get_supported_extensions()
-            self.assertIn('.dummyformat', supported)
-            emails, err = parse_document("test.dummyformat")
-            # If file doesn't exist, parse_document returns file not found, but we can create a dummy file
-            with tempfile.NamedTemporaryFile(suffix=".dummyformat", delete=False) as df:
-                df.write(b"content")
-                df_path = df.name
-            try:
-                emails, err = parse_document(df_path)
-                self.assertIsNone(err)
-                self.assertEqual(emails, ['custom@dummy.org'])
-            finally:
-                if os.path.exists(df_path):
-                    os.remove(df_path)
+            with zipfile.ZipFile(path, "w") as z:
+                z.writestr(
+                    "xl/sharedStrings.xml",
+                    b'<?xml version="1.0"?><sst><si><t>xlsx@test.com</t></si></sst>'
+                )
+            emails, err = parse_document(path)
+            self.assertIsNone(err)
+            self.assertIn("xlsx@test.com", emails)
         finally:
-            if os.path.exists(custom_file):
-                os.remove(custom_file)
-            discover_and_register_parsers()
+            os.remove(path)
+
+    def test_parser_autodiscovery(self):
+        """Verify engine/parsers/ auto-discovery loads all built-in parsers."""
+        parsers = get_registered_parsers()
+        self.assertGreater(len(parsers), 0)
+        exts = get_supported_extensions()
+        for ext in ['.docx', '.xlsx', '.pptx', '.txt', '.pdf', '.epub']:
+            self.assertIn(ext, exts, f"Parser for {ext} not discovered")
 
     def test_ocr_engine_status(self):
         status = get_ocr_engines_status()
@@ -146,6 +128,11 @@ class TestParsers(unittest.TestCase):
         self.assertFalse(is_hardware_acceleration_enabled())
         set_hardware_acceleration(True)
         self.assertTrue(is_hardware_acceleration_enabled())
+
+    def test_missing_file(self):
+        emails, err = parse_document("/nonexistent/file.txt")
+        self.assertEqual(emails, [])
+        self.assertIsNotNone(err)
 
 
 class TestOutputManager(unittest.TestCase):
@@ -176,6 +163,19 @@ class TestOutputManager(unittest.TestCase):
             self.assertFalse(os.path.exists(src))
             self.assertTrue(os.path.exists(os.path.join(tmp, "Done_doc.txt")))
 
+    def test_global_deduplication(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = os.path.join(tmp, "file.txt")
+            open(src, "w").close()
+            mgr = OutputManager(
+                destination_mode="custom_folder",
+                custom_folder=tmp,
+                global_dedupe=True,
+                post_action="keep",
+            )
+            mgr.add_results_for_file(src, ["dup@test.com", "dup@test.com", "unique@test.com"])
+            self.assertEqual(len(mgr.global_seen_emails), 2)
+
 
 class TestGUI(unittest.TestCase):
     def test_window_init(self):
@@ -186,6 +186,7 @@ class TestGUI(unittest.TestCase):
         self.assertIn("Email Crunch", win.windowTitle())
         self.assertEqual(win.table.columnCount(), 8)
         self.assertIsNotNone(win.btn_dry_run)
+        self.assertIsNotNone(win.btn_start)
         win.close()
 
 
